@@ -6,6 +6,7 @@ public class HoverCarControl : MonoBehaviour {
 	Rigidbody body;
 	public GameObject model;
 	public GameObject center;
+	public GameObject camara;
 	public GameObject[] hoverPoints;
 
 	public float deadZone = 0.1f;
@@ -17,6 +18,9 @@ public class HoverCarControl : MonoBehaviour {
 	public float MaxSpeedFwd = 100.0f;
 	public float MaxSpeedBkd = 25.0f;
 	public float turboBoost = 1.5f;
+	private float time = 0.0f;
+	private bool turboOn = false;
+
 	private float InitialMaxSpeedFwd;
 	private float InitialMaxSpeedBkd;
 
@@ -25,6 +29,7 @@ public class HoverCarControl : MonoBehaviour {
 	public GameObject V2;
 	private UpdateText v1Text;
 	private UpdateText v2Text;
+
 
 	float turn = 0.0f;
 	public float turnStrength = 10f;
@@ -36,14 +41,14 @@ public class HoverCarControl : MonoBehaviour {
 	Vector3 aux;
 	float align;
 
-
-
 	void Start() {
 		body = GetComponent<Rigidbody>();
 		layerMask = 1 << LayerMask.NameToLayer("Vehicle");
 		layerMask = ~layerMask;
 		InitialMaxSpeedFwd = MaxSpeedFwd;
 		InitialMaxSpeedBkd = MaxSpeedBkd;
+		MaxSpeedFwd = 0;
+		MaxSpeedBkd = 0;
 		velocityBar = GameObject.Find ("AccelBar");
 		v1Text = V1.GetComponent(typeof(UpdateText)) as UpdateText;
 		v2Text = V2.GetComponent(typeof(UpdateText)) as UpdateText;
@@ -68,9 +73,18 @@ public class HoverCarControl : MonoBehaviour {
 	}
 	
 	void Update() {
-		velocityBar.SendMessage("setValue", body.velocity.magnitude * (75.0f/7.0f));
+		velocityBar.SendMessage("setValue", body.velocity.magnitude * (75.0f/8.0f));
 		v1Text.UpdateVU(body.velocity.magnitude);
 		v2Text.UpdateVD(body.velocity.magnitude);
+
+		//Turbo
+		if (turboOn) {
+			time -= Time.deltaTime;
+			if (time <= 0) {
+				stopturbo();
+				turboOn = false;
+			}
+		}
 
 		// Main Thrust
 		thrust = 0.0f;
@@ -90,9 +104,9 @@ public class HoverCarControl : MonoBehaviour {
 		
 	void FixedUpdate() {
 		
-		//Reset Position
+		// Reset Position
 		RaycastHit hit;
-		if (!Physics.Raycast (center.transform.position, Vector3.down, out hit, hoverHeight * 4, layerMask)) {
+		if (!Physics.Raycast (center.transform.position, -center.transform.up, out hit, hoverHeight * 30, layerMask)) {
 			aux = body.transform.position;
 			Invoke ("Reset", 1);
 		} 
@@ -104,14 +118,10 @@ public class HoverCarControl : MonoBehaviour {
 				body.AddForceAtPosition(Vector3.up * hoverForce * (1.0f - (hit.distance / hoverHeight)), hoverPoint.transform.position);
 			else {
 				body.AddForceAtPosition(hoverPoint.transform.up * -hoverForce,hoverPoint.transform.position);
-				/*if (transform.position.y > hoverPoint.transform.position.y)
-					body.AddForceAtPosition(hoverPoint.transform.up * hoverForce,hoverPoint.transform.position);
-				else
-					body.AddForceAtPosition(hoverPoint.transform.up * -hoverForce,hoverPoint.transform.position);*/
 			}
 		}
-		//Normal Align
-		if (Physics.Raycast(center.transform.position,-center.transform.up,out hit,hoverHeight*4,layerMask)) {
+		// Normal Align
+		if (Physics.Raycast(center.transform.position,-center.transform.up,out hit,hoverHeight*30,layerMask)) {
 			Vector3 myNormal = Vector3.Lerp(transform.up, hit.normal,10*Time.deltaTime);
 			Vector3 myForward = Vector3.Cross(transform.right, myNormal);
 			Quaternion rot = Quaternion.LookRotation(myForward,myNormal);
@@ -120,7 +130,6 @@ public class HoverCarControl : MonoBehaviour {
 
 		// Forward
 		if (Mathf.Abs (thrust) > 0) {
-			//Debug.Log (thrust);
 			body.AddForce (transform.forward * thrust);
 		}
 
@@ -151,7 +160,6 @@ public class HoverCarControl : MonoBehaviour {
 	}*/
 
 	public void Reset() {
-		// MILLORABLE
 		Transform[] auxPoints = SafePoints.GetComponentsInChildren<Transform>();
 		body.velocity = new Vector3(0.0f,0.0f,0.0f);
 		body.angularVelocity = new Vector3(0.0f,0.0f,0.0f);
@@ -161,16 +169,21 @@ public class HoverCarControl : MonoBehaviour {
 		// Go to the closest safepoint
 		foreach(Transform trans in auxPoints) {
 			float dist = Vector3.Distance (aux, trans.position);
-			if (dist < closest) {
-				closest = dist;
-				safePoint = trans;
+			if (!trans.Equals (SafePoints.transform)) {
+				if (dist < closest) {
+					closest = dist;
+					safePoint = trans;
+				}
 			}
 		}
 		body.transform.position = safePoint.position;
 		body.transform.forward = safePoint.forward;
 	}
 
-	public void turbo(){
+	public void turbo(float t){
+		time += t;
+		camara.GetComponent<CameraShake>().shakeDuration = time;
+		turboOn = true;
 		if (MaxSpeedFwd == InitialMaxSpeedFwd) {
 			MaxSpeedFwd *= turboBoost;
 			MaxSpeedBkd *= turboBoost;
@@ -178,9 +191,14 @@ public class HoverCarControl : MonoBehaviour {
 	}
 
 	public void stopturbo(){
+		turboOn = false;
+		time = 0.0F;
 		MaxSpeedFwd = InitialMaxSpeedFwd;
 		MaxSpeedBkd = InitialMaxSpeedBkd;
 	}
 
-
+	public void go(){
+		MaxSpeedFwd = InitialMaxSpeedFwd;
+		MaxSpeedBkd = InitialMaxSpeedBkd;
+	}
 }

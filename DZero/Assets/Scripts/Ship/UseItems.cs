@@ -6,42 +6,50 @@ using UnityEditor;
 #endif
 
 public class UseItems : MonoBehaviour {
+
+	public Vector3 MissilePoint;
 	public Image icon;
+	public int item = 0;
 	public GameObject self;
 	public GameObject mine;
-
+	public float turboTime = 3.0f;
 	private GameObject childMine;
-
-	public float turboTime = 5.0F;
-	private float time = 0.0F;
+	public GameObject lanzadera;
+	public GameObject escut;
+	public GameObject bullet;
 	private bool turboOn = false;
 
 	// Use this for initialization
 	void Start () {
-	
+		
 	}
 
 	// Update is called once per frame
 	void Update () {
-		if (turboOn) {
-			time -= Time.deltaTime;
-			if (time <= 0) {
-				self.SendMessage ("stopturbo");
-				turboOn = false;
-			}
-		}
-
 		if (Input.GetKeyDown ("space")) {
-			if (icon.material.name == "boost (Instance)") {
-				self.SendMessage ("turbo");
-				time = turboTime;
-				turboOn = true;
+			if (item == 1) {
+				self.SendMessage ("turbo", turboTime);
 			}
-			else if (icon.material.name == "mine (Instance)") {
+			else if (item == 2) {
 				childMine = (GameObject)GameObject.Instantiate (mine, transform.position, transform.rotation);
-				//Physics.IgnoreCollision (childMine.GetComponent<Collider> (), GetComponent<Collider> ());
 			}
+			else if (item == 3) {
+				childMine = (GameObject)GameObject.Instantiate (bullet, lanzadera.transform.position, transform.rotation);
+				Physics.IgnoreCollision (childMine.GetComponent<Collider> (), GetComponent<Collider> ());
+				childMine.GetComponent<Missile> ().ActiveWaypoint = MissilePoint;
+				childMine.GetComponent<Missile> ().Target = GetComponent<LapCount>().Victim;
+			}
+			else if (item == 4) {
+				escut.active = true;
+			}
+			item = 0;
 			icon.material = null;
 		}
+	}
+
+	void noShield(){
+		if (escut.active)
+			gameObject.SendMessage ("heal", 20.0F);
+		escut.active = false;
 	}
 }

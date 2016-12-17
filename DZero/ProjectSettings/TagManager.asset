@@ -5,6 +5,11 @@ TagManager:
   serializedVersion: 2
   tags:
   - Power
+  - AI
+  - power
+  - shield
+  - Missile
+  - Waypoint
   layers:
   - Default
   - TransparentFX

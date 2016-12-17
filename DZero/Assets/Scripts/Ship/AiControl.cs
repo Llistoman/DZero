@@ -19,6 +19,10 @@ public class AiControl : MonoBehaviour {
 	public float MinSpeedFwd = 80.0f;
 	public float accel = 1.5f;
 	public float inertia = 0.9f;
+	public float turboBoost = 1.5f;
+	private float time = 0.0f;
+	private bool turboOn = false;
+	private float InitialMaxSpeedFwd;
 
 	public float currentSpeed = 0.0f;
 	public int state;
@@ -40,6 +44,8 @@ public class AiControl : MonoBehaviour {
 
 	void Start() {
 		grounded = false;
+		InitialMaxSpeedFwd = MaxSpeedFwd;
+		MaxSpeedFwd = 0;
 		body = GetComponent<Rigidbody>();
 		layerMask = 1 << LayerMask.NameToLayer("Vehicle");
 		layerMask = ~layerMask;
@@ -69,14 +75,13 @@ public class AiControl : MonoBehaviour {
 			Accel ();
 		else if (state == 1 && grounded)
 			Slow ();
-		//Accel ();
 	}
 
 	void FixedUpdate() {
 
 		//Reset Position
 		RaycastHit hit;
-		if (!Physics.Raycast (center.transform.position, Vector3.down, out hit, hoverHeight * 4, layerMask)) {
+		if (!Physics.Raycast (center.transform.position, Vector3.down, out hit, hoverHeight * 30, layerMask)) {
 			grounded = false;
 			aux = body.transform.position;
 			Invoke ("Reset", 1);
@@ -89,10 +94,6 @@ public class AiControl : MonoBehaviour {
 				body.AddForceAtPosition(Vector3.up * hoverForce * (1.0f - (hit.distance / hoverHeight)), hoverPoint.transform.position);
 			else {
 				body.AddForceAtPosition(hoverPoint.transform.up * -hoverForce,hoverPoint.transform.position);
-				/*if (transform.position.y > hoverPoint.transform.position.y)
-					body.AddForceAtPosition(hoverPoint.transform.up * hoverForce,hoverPoint.transform.position);
-				else
-					body.AddForceAtPosition(hoverPoint.transform.up * -hoverForce,hoverPoint.transform.position);*/
 			}
 		}
 	}
@@ -103,7 +104,8 @@ public class AiControl : MonoBehaviour {
 	}
 		
 	void OnTriggerEnter() {
-		state = 1;
+		if(!turboOn)
+			state = 1;
 	}
 
 	void OnTriggerExit() {
@@ -115,15 +117,15 @@ public class AiControl : MonoBehaviour {
 			accelState = true;
 			slowState = false;
 		}
-		//Normal Align
+		// Normal Align
 		RaycastHit hit;
-		if (Physics.Raycast(center.transform.position,-center.transform.up, out hit,hoverHeight,layerMask)) {
+		if (Physics.Raycast(center.transform.position,-center.transform.up, out hit,hoverHeight*30,layerMask)) {
 			Vector3 myNormal = Vector3.Lerp(transform.up, hit.normal,10*Time.deltaTime);
 			Vector3 myForward = Vector3.Cross(transform.right, myNormal);
 			Quaternion rot = Quaternion.LookRotation(myForward,myNormal);
 			transform.rotation = Quaternion.Slerp(transform.rotation,rot,10*Time.deltaTime);
 		}
-		//Turn & Incline
+		// Turn & Incline
 		Vector3 direction = ActiveWaypoint-transform.position;
 		turn = 1.0f - Mathf.Abs(Vector3.Dot(transform.forward.normalized, direction.normalized));
 		if (Dir(transform.forward.normalized,direction.normalized,transform.up.normalized) == -1f)
@@ -148,9 +150,20 @@ public class AiControl : MonoBehaviour {
 		}
 		model.transform.localEulerAngles = new Vector3 (model.transform.localEulerAngles.x, model.transform.localEulerAngles.y, -incline);
 
-		//Forward
-		thrust += accel;
-		//thrust = Mathf.Clamp (thrust, -1f, 1f);
+		// Turbo
+		if (turboOn) {
+			time -= Time.deltaTime;
+			if (time <= 0) {
+				stopturbo();
+				turboOn = false;
+			}
+		}
+
+		// Forward
+		if(turboOn)
+			thrust += accel*8;
+		else 
+			thrust += accel;
 		if (thrust > MaxSpeedFwd)
 			thrust = MaxSpeedFwd;
 		if (Mathf.Abs (thrust) > deadZone) 
@@ -184,7 +197,6 @@ public class AiControl : MonoBehaviour {
 	}
 			
 	public void Reset() {
-		// MILLORABLE
 		Transform[] auxPoints = SafePoints.GetComponentsInChildren<Transform>();
 		body.velocity = new Vector3(0.0f,0.0f,0.0f);
 		body.angularVelocity = new Vector3(0.0f,0.0f,0.0f);
@@ -194,12 +206,32 @@ public class AiControl : MonoBehaviour {
 		// Go to the closest safepoint
 		foreach(Transform trans in auxPoints) {
 			float dist = Vector3.Distance (aux, trans.position);
-			if (dist < closest) {
-				closest = dist;
-				safePoint = trans;
+			if (!trans.Equals (SafePoints.transform)) {
+				if (dist < closest) {
+					closest = dist;
+					safePoint = trans;
+				}
 			}
 		}
 		body.transform.position = safePoint.position;
 		body.transform.forward = safePoint.forward;
+	}
+
+	public void turbo(float t){
+		time += t;
+		turboOn = true;
+		if (MaxSpeedFwd == InitialMaxSpeedFwd) {
+			MaxSpeedFwd *= turboBoost;
+		}
+	}
+
+	public void stopturbo(){
+		turboOn = false;
+		time = 0.0f;
+		MaxSpeedFwd = InitialMaxSpeedFwd;
+	}
+
+	public void go(){
+		MaxSpeedFwd = InitialMaxSpeedFwd;
 	}
 }

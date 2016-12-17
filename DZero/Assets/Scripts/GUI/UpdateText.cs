@@ -43,4 +43,25 @@ public class UpdateText : MonoBehaviour {
 	{
 		text.text = y;
 	}
+
+	public void UpdateRank1(int v)
+	{
+		text.text = v.ToString();
+	}
+
+	public void UpdateRank2(int v)
+	{
+		if (v == 1) {
+			text.text = "ST";
+		}
+		else if (v == 2) {
+			text.text = "ND";
+		}
+		else if (v == 3) {
+			text.text = "RD";
+		}
+		else  {
+			text.text = "TH";
+		}
+	}
 }
